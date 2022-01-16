@@ -1,0 +1,122 @@
+
+---------------
+Host01-VM1
+---------------
+
+$ sudo apt update
+$ sudo apt install -y docker.io
+$ sudo docker pull ubuntu
+$ docker network create --subnet 172.18.0.0/16 vxlan-net
+Got permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Post http://%2Fvar%2Frun%2Fdocker.sock/v1.24/networks/create: dial unix /var/run/docker.sock: connect: permission denied
+$ sudo docker network create --subnet 172.18.0.0/16 vxlan-net
+c43287381077769a873105e49d34d45f5426e42adf52ef7a92394fe0192715b1
+$ sudo docker network ls
+NETWORK ID     NAME        DRIVER    SCOPE
+982c9e8e9e40   bridge      bridge    local
+2c2b3714bca9   host        host      local
+223b98ebd6ef   none        null      local
+c43287381077   vxlan-net   bridge    local
+$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9001 qdisc fq_codel state UP group default qlen 1000
+    link/ether 0a:f5:a4:e1:3a:c2 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.1.4/24 brd 10.0.1.255 scope global dynamic eth0
+       valid_lft 2529sec preferred_lft 2529sec
+    inet6 fe80::8f5:a4ff:fee1:3ac2/64 scope link 
+       valid_lft forever preferred_lft forever
+3: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default 
+    link/ether 02:42:9f:18:ff:df brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
+       valid_lft forever preferred_lft forever
+4: br-c43287381077: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default 
+    link/ether 02:42:f2:77:0d:ab brd ff:ff:ff:ff:ff:ff
+    inet 172.18.0.1/16 brd 172.18.255.255 scope global br-c43287381077
+       valid_lft forever preferred_lft forever
+       
+       
+$ sudo docker run -d --net vxlan-net --ip 172.18.0.11 ubuntu sleep 3000
+a90cbd31d1a20b5e8369f211e65e6fdabf611d01353cb4dc3ff646166ce18e26
+ubuntu@ip-10-0-1-4:~$ sudo docker ps
+CONTAINER ID   IMAGE     COMMAND        CREATED         STATUS         PORTS     NAMES
+a90cbd31d1a2   ubuntu    "sleep 3000"   7 seconds ago   Up 6 seconds             jolly_khayyam
+
+$ sudo docker inspect a9 | grep IPAddress
+            "SecondaryIPAddresses": null,
+            "IPAddress": "",
+                    "IPAddress": "172.18.0.11",
+$ ping 172.18.0.1 -c 2
+PING 172.18.0.1 (172.18.0.1) 56(84) bytes of data.
+64 bytes from 172.18.0.1: icmp_seq=1 ttl=64 time=0.047 ms
+64 bytes from 172.18.0.1: icmp_seq=2 ttl=64 time=0.044 ms
+
+--- 172.18.0.1 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1010ms
+rtt min/avg/max/mdev = 0.044/0.045/0.047/0.001 ms
+
+
+$ sudo docker exec -it a9 bash
+
+	# apt-get update
+	# apt-get install net-tools
+	# apt-get install iputils-ping
+	# ping 172.18.0.12 -c 2
+	PING 172.18.0.12 (172.18.0.12) 56(84) bytes of data.
+	--- 172.18.0.12 ping statistics ---
+	2 packets transmitted, 0 received, 100% packet loss, time 2028ms
+	
+-----------------
+VXLAN
+-----------------
+$ brctl show
+bridge name	bridge id		STP enabled	interfaces
+br-c43287381077		8000.0242f2770dab	no		veth725a704
+docker0		8000.02429f18ffdf	no
+$ sudo ip link add vxlan-demo type vxlan id 100 remote 10.0.1.41 dstport 4789 dev eth0		
+$ ip a | grep vxlan
+9: vxlan-demo: <BROADCAST,MULTICAST> mtu 8951 qdisc noop state DOWN group default qlen 1000
+$ sudo ip link set vxlan-demo up
+$ brctl show
+bridge name	bridge id		STP enabled	interfaces
+br-c43287381077		8000.0242f2770dab	no		veth725a704
+docker0		8000.02429f18ffdf	no		
+$ sudo brctl addif br-c43287381077 vxlan-demo
+
+$ route -n
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         10.0.1.1        0.0.0.0         UG    100    0        0 eth0
+10.0.1.0        0.0.0.0         255.255.255.0   U     0      0        0 eth0
+10.0.1.1        0.0.0.0         255.255.255.255 UH    100    0        0 eth0
+172.17.0.0      0.0.0.0         255.255.0.0     U     0      0        0 docker0
+172.18.0.0      0.0.0.0         255.255.0.0     U     0      0        0 br-c43287381077
+
+------------------
+Connectivity TEST
+------------------
+
+$ sudo docker exec -it a9 bash
+	# ping 172.18.0.12 -c 2
+	PING 172.18.0.12 (172.18.0.12) 56(84) bytes of data.
+	64 bytes from 172.18.0.12: icmp_seq=1 ttl=64 time=0.601 ms
+	64 bytes from 172.18.0.12: icmp_seq=2 ttl=64 time=0.601 ms
+
+	--- 172.18.0.12 ping statistics ---
+	2 packets transmitted, 2 received, 0% packet loss, time 1018ms
+	rtt min/avg/max/mdev = 0.601/0.601/0.601/0.000 ms
+	
+	# ping 172.18.0.1 -c 2
+	PING 172.18.0.1 (172.18.0.1) 56(84) bytes of data.
+	64 bytes from 172.18.0.1: icmp_seq=1 ttl=64 time=0.062 ms
+	64 bytes from 172.18.0.1: icmp_seq=2 ttl=64 time=0.080 ms
+
+	--- 172.18.0.1 ping statistics ---
+	2 packets transmitted, 2 received, 0% packet loss, time 1032ms
+	rtt min/avg/max/mdev = 0.062/0.071/0.080/0.009 ms
+
+
+
