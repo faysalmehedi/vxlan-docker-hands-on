@@ -39,6 +39,10 @@ _the diagrom is taken from networkdirection blog_
 - Then bind the vxlan to the docker bridge to crate the tunnel
 - Hopefully then we see the response from another host conatiner.
 
+
+### Get an overview of the hands-on from the diagram below
+![Project Diagram](https://github.com/faayam/vxlan-docker-hands-on/blob/main/vxlan-diagram.png)
+
 ## Let's start...
 
 **_Step 0:_** For this demo, anyone can deploy two VM on any hypervisor or virtualization technology. Make sure they are on the same network thus hosts can communicate each other. I launched two ec2 instance(ubuntu) which is on same VPC from AWS to simulate this hands-on. In case of AWS, please allow all traffic in security group to avoid connectivity issues. 
@@ -327,9 +331,7 @@ PING 172.18.0.11 (172.18.0.11) 56(84) bytes of data.
 rtt min/avg/max/mdev = 0.601/0.601/0.601/0.000 ms
 ```
 
-#### Now the hands on completed; Please see the below project diagram to get an overview.
-
-![Project Diagram](https://github.com/faayam/vxlan-docker-hands-on/blob/main/vxlan-diagram.png)
+#### Now the hands on completed; 
 
 
 #### Resources
